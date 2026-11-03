@@ -55,6 +55,7 @@ local function filterGear(QR)
     if not quests then return false, "quest reward entries look different" end
     lines[#lines + 1] = { line = line, quests = quests }
   end
+  local on = NS.IsOn("gearquests")
   local kept = {}
   for _, l in ipairs(lines) do
     local known = false
@@ -63,10 +64,10 @@ local function filterGear(QR)
       watched[q] = true
       if db.quests[q] then known = true end
     end
-    if known then kept[#kept + 1] = l.line end
+    if known or not on then kept[#kept + 1] = l.line end
   end
-  QR.items = table.concat(kept, "\n")
-  counts.gear = { #kept, #lines }
+  if on then QR.items = table.concat(kept, "\n") end
+  counts.gear = on and { #kept, #lines } or nil
   return true
 end
 
@@ -77,6 +78,7 @@ local function filterTiers(tiers)
   end
   local total = #tiers
   for _, t in ipairs(tiers) do watched[t.questID] = true end
+  if not NS.IsOn("books") then counts.tiers = nil; return true end
   NS.FilterInPlace(tiers, function(t) return db.quests[t.questID] end)
   counts.tiers = { #tiers, total }
   return true
@@ -100,7 +102,13 @@ M.events = {
   QUEST_TURNED_IN = function(id) seen(id) end,
 }
 
+local function part(c, word)
+  if c then return string.format("%d of %d %s", c[1], c[2], word) end
+end
+NS.Counter("gearquests", function() return part(counts.gear, "shown") end)
+NS.Counter("books", function() return part(counts.tiers, "reward tiers") end)
+
 function M.status()
-  return string.format("%d of %d Gear Planner quest rewards and %d of %d book reward tiers shown",
-    counts.gear[1], counts.gear[2], counts.tiers[1], counts.tiers[2])
+  return string.format("%s, %s", part(counts.gear, "Gear Planner quest rewards shown") or "Gear Planner quest rewards not hidden",
+    part(counts.tiers, "book reward tiers shown") or "book reward tiers not hidden")
 end

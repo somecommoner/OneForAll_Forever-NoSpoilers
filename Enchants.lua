@@ -23,6 +23,7 @@ function M.apply(FLT, saved)
     if type(o.s) == "number" then NS.WatchRecipeSpell(o.s) end
     if type(o.i) == "number" then NS.WatchItem(o.i) end
   end
+  if not NS.IsOn("enchants") then counts = nil; return true end -- switched off: OneForAll shows them all
   NS.FilterInPlace(list, function(o)
     return (o.s ~= nil and saved.recipes[o.s]) or (o.i ~= nil and saved.items[o.i])
   end)
@@ -30,6 +31,9 @@ function M.apply(FLT, saved)
   return true
 end
 
+NS.Counter("enchants", function() if counts then return string.format("%d of %d shown", counts[1], counts[2]) end end)
+
 function M.status()
+  if not counts then return "not hidden (switched off)" end
   return string.format("%d of %d enchant options shown", counts[1], counts[2])
 end

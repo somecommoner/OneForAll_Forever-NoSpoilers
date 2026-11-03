@@ -88,6 +88,7 @@ function M.apply(FLT, saved)
     end
   end
 
+  if not NS.IsOn("pets") then counts = nil; return true end -- switched off: OneForAll shows everything, taming still records
   local totalF = #fams
   NS.FilterInPlace(fams, function(f) return db.pets.families[f.name] end)
   for _, f in ipairs(fams) do
@@ -116,7 +117,12 @@ M.events = {
   PET_STABLE_UPDATE = recordStable,
 }
 
+NS.Counter("pets", function()
+  if counts then return string.format("%d of %d families", counts.families[1], counts.families[2]) end
+end)
+
 function M.status()
+  if not counts then return "not hidden (switched off)" end
   local beasts = 0
   for _ in pairs(db.pets.npcs) do beasts = beasts + 1 end
   return string.format("%d of %d families and %d of %d rare tames shown, %d beasts tamed", counts.families[1],

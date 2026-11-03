@@ -47,12 +47,18 @@ function M.apply(FLT, saved)
       for _, it in ipairs(e.i) do NS.WatchItem(it[1]) end
     end
   end
+  if not NS.IsOn("armory") then counts = nil; return true end -- switched off: OneForAll shows everything
   if type(sets) == "table" then counts.sets = { filter(sets, true) } end
   if type(rep) == "table" then counts.factions = { filter(rep) } end
   return true
 end
 
+NS.Counter("armory", function()
+  if counts then return string.format("%d of %d sets", counts.sets[1], counts.sets[2]) end
+end)
+
 function M.status()
+  if not counts then return "not hidden (switched off)" end
   return string.format("%d of %d sets and %d of %d factions shown", counts.sets[1], counts.sets[2],
     counts.factions[1], counts.factions[2])
 end

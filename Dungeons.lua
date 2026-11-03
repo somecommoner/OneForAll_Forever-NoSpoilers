@@ -52,7 +52,7 @@ local function discover(list)
       names[#names + 1] = d.short or d.name
     end
   end
-  if #names > 0 then NS.AskReload("Discovered: " .. table.concat(names, ", ") .. ".") end
+  if #names > 0 and NS.IsOn("dungeons") then NS.AskReload("Discovered: " .. table.concat(names, ", ") .. ".") end
 end
 
 local function check()
@@ -89,7 +89,8 @@ function M.apply(FLT, saved)
     if type(d) ~= "table" or type(d.name) ~= "string" then return false, "dungeon entries look different" end
   end
   for i, d in ipairs(list) do all[i] = d end
-  NS.FilterInPlace(list, function(d) return db.dungeons[d.name] end)
+  -- switched off: OneForAll shows them all, entering still records
+  if NS.IsOn("dungeons") then NS.FilterInPlace(list, function(d) return db.dungeons[d.name] end) end
   return true
 end
 
@@ -98,8 +99,13 @@ M.events = {
   ZONE_CHANGED_NEW_AREA = checkSoon,
 }
 
-function M.status()
+local function discovered()
   local n = 0
   for _, d in ipairs(all) do if db.dungeons[d.name] then n = n + 1 end end
   return string.format("%d of %d discovered", n, #all)
+end
+NS.Counter("dungeons", function() return M.active and discovered() end)
+
+function M.status()
+  return discovered() .. (NS.IsOn("dungeons") and "" or " (not hidden: switched off)")
 end

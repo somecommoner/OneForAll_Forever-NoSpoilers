@@ -1,7 +1,7 @@
 local _, NS = ...
 
--- Places: map landmarks (flight masters, ships, zeppelins, the tram, zone transitions, Skyborne spots), Library
--- Books and weapon masters (trainer window) appear once this character has been close to them.
+-- Places: map landmarks (flight masters, ships, zeppelins, the tram, zone transitions, Skyborne spots), world map
+-- quest givers, Library Books and weapon masters (trainer window) appear once this character has been close to them.
 --
 -- Where the character has been is kept as a trail of cells: about 40 yards in world coordinates, plus 1 % of
 -- the zone map as a fallback for clients or places without world coordinates. A place counts as "been close"
@@ -28,6 +28,8 @@ local bucketW, bucketM = {}, {} -- cell -> hidden entries there, for the trail c
 local counts = {} -- source name -> { shown, total }
 local skipped = {} -- sources left untouched (data looked different)
 local live -- true once OneForAll's map index could be rebuilt
+local found = false -- at least one of OneForAll's lists was there
+local LANDMARKS = { "flight", "zeppelin", "ship", "air", "tram", "ley lines", "convergences", "zone transitions" }
 
 local function vecXY(v)
   if not v then return end
@@ -106,7 +108,7 @@ end
 local function reveal(e)
   if e.revealed then return end
   e.revealed = true
-  table.insert(e.list, e.item)
+  if e.list then table.insert(e.list, e.item) end
   local c = counts[e.source]
   if c then c[1] = c[1] + 1 end
   if e.onReveal then e.onReveal(e.item) end
@@ -144,6 +146,8 @@ end
 -- otherwise the list looks different from what we expect and stays as it is.
 local function filterList(name, list, getPos, opts)
   if type(list) ~= "table" then return end
+  found = true
+  if not NS.IsOn(opts.toggle) then return end -- switched off: OneForAll shows them all; the trail still records
   for _, item in ipairs(list) do
     if type(item) ~= "table" then skipped[#skipped + 1] = name; return end
     if opts.needPos and not getPos(item) then skipped[#skipped + 1] = name; return end
@@ -162,6 +166,70 @@ local function filterList(name, list, getPos, opts)
     index(e)
   end
   counts[name] = { #list, #list + #removed }
+end
+
+-- World map quest icons: FLT.QUEST_PINS[uiMapID] is a text block per map. A line "!x,y,giver" starts a quest
+-- giver, followed by one line per quest ("id|level|..."); "?x,y,ids,name" is a turn-in; "~..." after either is
+-- a walking NPC's route. Givers stay once you have been close; turn-ins always stay (they only ever show for
+-- quests in your log). OneForAll reads a map's text the first time that map is shown in a session, so a giver
+-- revealed later shows on a map already opened this session after the next /reload.
+local function parseQuestPins(raw)
+  local blocks, cur = {}, nil
+  for line in raw:gmatch("[^\n]+") do
+    local c = line:sub(1, 1)
+    if c == "!" or c == "?" then
+      local x, y = line:match("^.([%d.]+),([%d.]+),")
+      if not x then return nil end
+      cur = { kind = c, x = tonumber(x), y = tonumber(y), lines = { line } }
+      blocks[#blocks + 1] = cur
+    elseif cur and (c == "~" or line:match("^%d+|")) then
+      cur.lines[#cur.lines + 1] = line
+    else
+      return nil
+    end
+  end
+  return blocks
+end
+
+local function filterQuestPins(pins)
+  if type(pins) ~= "table" then return end
+  found = true
+  if not NS.IsOn("questgivers") then return end
+  local maps = {}
+  for mapID, raw in pairs(pins) do
+    local blocks = type(mapID) == "number" and type(raw) == "string" and parseQuestPins(raw)
+    if not blocks then skipped[#skipped + 1] = "quest givers"; return end
+    maps[mapID] = blocks
+  end
+  local shown, total = 0, 0
+  for mapID, blocks in pairs(maps) do
+    local function rebuild()
+      local out = {}
+      for _, b in ipairs(blocks) do
+        if b.kind == "?" or b.shown then
+          for _, l in ipairs(b.lines) do out[#out + 1] = l end
+        end
+      end
+      pins[mapID] = table.concat(out, "\n")
+    end
+    local function pos(b) return mapID, b.x / 100, b.y / 100 end
+    for _, b in ipairs(blocks) do
+      if b.kind == "!" then
+        total = total + 1
+        local e = { item = b, getPos = pos, source = "quest givers", onReveal = function(blk) blk.shown = true; rebuild() end }
+        place(e)
+        if visited(e) then
+          b.shown = true
+          shown = shown + 1
+        else
+          hidden[#hidden + 1] = e
+          index(e)
+        end
+      end
+    end
+    rebuild()
+  end
+  counts["quest givers"] = { shown, total }
 end
 
 -- Trail -----------------------------------------------------------------------------------------------
@@ -234,26 +302,41 @@ function M.apply(FLT, saved)
   local lm = FLT.MAP_LANDMARKS
   if type(lm) == "table" then
     for _, sub in ipairs({ "flight", "zeppelin", "ship", "air", "tram" }) do
-      filterList(sub, lm[sub], arrayPos, { needPos = true })
+      filterList(sub, lm[sub], arrayPos, { needPos = true, toggle = "landmarks" })
     end
   end
   if type(FLT.SKYBORNE_SPOTS) == "table" then
-    filterList("ley lines", FLT.SKYBORNE_SPOTS.ley, arrayPos, { needPos = true })
-    filterList("convergences", FLT.SKYBORNE_SPOTS.conv, arrayPos, { needPos = true })
+    filterList("ley lines", FLT.SKYBORNE_SPOTS.ley, arrayPos, { needPos = true, toggle = "landmarks" })
+    filterList("convergences", FLT.SKYBORNE_SPOTS.conv, arrayPos, { needPos = true, toggle = "landmarks" })
   end
-  filterList("zone transitions", FLT.ZONE_TRANSITIONS, arrayPos, { needPos = true })
-  filterList("weapon masters", FLT.WEAPON_TRAINERS, fieldPos, { needPos = true })
+  filterList("zone transitions", FLT.ZONE_TRANSITIONS, arrayPos, { needPos = true, toggle = "landmarks" })
+  filterList("weapon masters", FLT.WEAPON_TRAINERS, fieldPos, { needPos = true, toggle = "weaponmasters" })
+  filterQuestPins(FLT.QUEST_PINS)
   filterList("books", FLT.BOOKS, bookPos, {
+    toggle = "books",
     known = function(b) return b.itemId ~= nil and db.books[b.itemId] end,
     onReveal = function(b) if b.itemId ~= nil then db.books[b.itemId] = true end end,
   })
 
-  if not next(counts) then return false, "none of OneForAll's map or book lists were found" end
+  if not found then return false, "none of OneForAll's map or book lists were found" end
   if #skipped > 0 then
     NS.Print("Left these unhidden because their data looks different: " .. table.concat(skipped, ", ") .. ".")
   end
   return true
 end
+
+local function countText(names, word)
+  local shown, total, any = 0, 0, false
+  for _, name in ipairs(names) do
+    local c = counts[name]
+    if c then shown, total, any = shown + c[1], total + c[2], true end
+  end
+  if any then return string.format("%d of %d %s", shown, total, word) end
+end
+NS.Counter("landmarks", function() return countText(LANDMARKS, "found") end)
+NS.Counter("questgivers", function() return countText({ "quest givers" }, "met") end)
+NS.Counter("books", function() return countText({ "books" }, "found") end)
+NS.Counter("weaponmasters", function() return countText({ "weapon masters" }, "found") end)
 
 M.events = {
   PLAYER_LOGIN = login,
@@ -263,15 +346,20 @@ M.events = {
 }
 
 function M.status()
+  local own = { books = true, ["weapon masters"] = true, ["quest givers"] = true }
   local icons, iconsTotal = 0, 0
   for name, c in pairs(counts) do
-    if name ~= "books" and name ~= "weapon masters" then icons, iconsTotal = icons + c[1], iconsTotal + c[2] end
+    if not own[name] then icons, iconsTotal = icons + c[1], iconsTotal + c[2] end
   end
-  local b = counts.books or { 0, 0 }
-  local w = counts["weapon masters"] or { 0, 0 }
+  local function part(name)
+    local c = counts[name]
+    if not c then return name .. " not hidden" end
+    return string.format("%d of %d %s", c[1], c[2], name)
+  end
   local cells = 0
   for _, t in pairs(trail.w) do for _ in pairs(t) do cells = cells + 1 end end
-  local liveText = live == false and ", new icons after /reload" or ""
-  return string.format("%d of %d map icons, %d of %d books, %d of %d weapon masters, %d places visited%s", icons,
-    iconsTotal, b[1], b[2], w[1], w[2], cells, liveText)
+  local liveText = live == false and ", new map icons after /reload" or ""
+  local iconText = NS.IsOn("landmarks") and string.format("%d of %d map icons", icons, iconsTotal) or "map icons not hidden"
+  return string.format("%s, %s, %s, %s, %d places visited%s", iconText, part("quest givers"), part("books"),
+    part("weapon masters"), cells, liveText)
 end

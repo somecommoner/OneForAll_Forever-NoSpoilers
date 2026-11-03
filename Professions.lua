@@ -111,10 +111,12 @@ function M.apply(FLT, saved)
     end
   end
 
+  local on = NS.IsOn("recipes") -- switched off: OneForAll shows them all, learning still records
   for _, list in pairs(R) do
-    NS.FilterInPlace(list, function(r) return db.recipes[r.s] end)
+    if on then NS.FilterInPlace(list, function(r) return db.recipes[r.s] end) end
     shown = shown + #list
   end
+  if not on then return true end
   if merchantOK then
     NS.FilterInPlace(merchant, function(r) local s = merchantSpell(r); return s and db.recipes[s] end)
   else
@@ -157,6 +159,13 @@ M.events = {
   CRAFT_SHOW = soon,
   CRAFT_UPDATE = soon,
 }
+
+NS.Counter("recipes", function()
+  if not M.active then return end
+  local learnt = 0
+  for s in pairs(db.recipes) do if allSpells[s] then learnt = learnt + 1 end end
+  return learnt .. " learnt"
+end)
 
 function M.status()
   local learnt = 0

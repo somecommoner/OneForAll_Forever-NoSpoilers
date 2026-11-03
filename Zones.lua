@@ -46,7 +46,7 @@ function M.apply(FLT, saved)
   end
   for id, range in pairs(levels) do
     total = total + 1
-    if not db.zones[id] then hidden[id] = range end
+    if not db.zones[id] and NS.IsOn("zones") then hidden[id] = range end
   end
   for id in pairs(hidden) do levels[id] = nil end
   return true
@@ -63,8 +63,13 @@ M.events = {
   PLAYER_ENTERING_WORLD = enterSoon,
 }
 
+local function visitedText()
+  local n = 0
+  for id in pairs(db.zones) do if levels[id] or hidden[id] then n = n + 1 end end
+  return string.format("%d of %d visited", n, total)
+end
+NS.Counter("zones", function() return M.active and visitedText() end)
+
 function M.status()
-  local shown = 0
-  for _ in pairs(levels) do shown = shown + 1 end
-  return string.format("%d of %d zones", shown, total)
+  return visitedText() .. (NS.IsOn("zones") and "" or " (not hidden: switched off)")
 end

@@ -29,10 +29,14 @@ local function api()
     NewTicker = function(_, fn) tickers[#tickers + 1] = fn end,
   }
   local frames = {}
+  local stubMeta
+  local function stub() return setmetatable({}, stubMeta) end
+  stubMeta = { __index = function() return function() return stub() end end }
   _G.CreateFrame = function()
-    local f = { events = {} }
+    local f = setmetatable({ events = {} }, stubMeta)
     function f:RegisterEvent(e) self.events[e] = true end
-    function f:SetScript(_, fn) self.onEvent = fn end
+    function f:SetScript(what, fn) if what == "OnEvent" then self.onEvent = fn end end
+    function f:GetChecked() return true end
     frames[#frames + 1] = f
     return f
   end
@@ -123,7 +127,7 @@ local function loadAddon()
   return NS
 end
 
-local function session(saved)
+local function session(saved, settings)
   chat, popups, timers, tickers = {}, {}, {}, {}
   world = { spells = {}, bags = {}, bagList = {} }
   api()
@@ -145,9 +149,24 @@ local function session(saved)
       for _, list in pairs(FLT.PROFESSION_RECIPES) do for _, r in ipairs(list) do if r.i == item then return r.s end end end
     end)(),
     overlays = next(FLT.MAP_OVERLAYS) ~= nil,
+    giver = (function()
+      local raw = FLT.QUEST_PINS[1429] -- Elwynn Forest
+      local x, y, name = raw:match("!([%d.]+),([%d.]+),([^\n]*)")
+      return { map = 1429, x = tonumber(x), y = tonumber(y), name = name }
+    end)(),
+    pinCounts = (function()
+      local giv, turn = 0, 0
+      for _, raw in pairs(FLT.QUEST_PINS) do
+        for line in raw:gmatch("[^\n]+") do
+          if line:sub(1, 1) == "!" then giv = giv + 1 elseif line:sub(1, 1) == "?" then turn = turn + 1 end
+        end
+      end
+      return { giv, turn }
+    end)(),
     rewardLine = FLT.QUEST_REWARDS.items:match("^[^\n]+"),
   }
   _G.OneForAllNoSpoilersCharDB = saved
+  _G.OneForAllNoSpoilersDB = settings
   local NS = loadAddon()
   fire("ADDON_LOADED", "OneForAll")
   fire("ADDON_LOADED", "OneForAll_NoSpoilers")
@@ -172,6 +191,14 @@ check(#FLT.ARMORY_SETS == 0 and #FLT.ARMORY_REPUTATION == 0, "no armory sets or 
 check(#FLT.PET_FAMILIES == 0 and #FLT.PET_RARES == 0, "no pet families or rares shown")
 check(full.overlays and next(FLT.MAP_OVERLAYS) == nil, "Remove Fog data emptied")
 check(FLT.QUEST_REWARDS.items == "", "no Gear Planner quest rewards shown")
+local giv, turn = 0, 0
+for _, raw in pairs(FLT.QUEST_PINS) do
+  for line in raw:gmatch("[^\n]+") do
+    if line:sub(1, 1) == "!" then giv = giv + 1 elseif line:sub(1, 1) == "?" then turn = turn + 1 end
+  end
+end
+check(giv == 0 and full.pinCounts[1] > 1000, "no quest givers on the map (of " .. full.pinCounts[1] .. ")")
+check(turn == full.pinCounts[2], "all " .. turn .. " turn-in spots kept")
 check(next(FLT.ZONE_LEVELS) == nil and full.zones > 30, "no zone level ranges shown (of " .. full.zones .. ")")
 check(#FLT.WEAPON_TRAINERS == 0, "no weapon masters shown")
 check(#FLT.CAMPING_PROFESSIONS == 0, "no camping items shown")
@@ -206,6 +233,12 @@ local wm = full.weaponMaster
 world.map, world.x, world.y = wm.map, wm.x / 100 + 0.02, wm.y / 100
 tickers[1](); runTimers()
 check(#FLT.WEAPON_TRAINERS >= 1, "weapon master " .. wm.name .. " revealed when near")
+
+-- walk up to a quest giver in Elwynn Forest
+local g = full.giver
+world.map, world.x, world.y = g.map, g.x / 100 + 0.03, g.y / 100
+tickers[1](); runTimers()
+check(FLT.QUEST_PINS[g.map]:find("!" .. g.x .. "," .. g.y .. "," .. g.name, 1, true) ~= nil, "quest giver " .. g.name .. " back in the map data when near")
 
 -- walk up to the first book
 local b = full.firstBook
@@ -273,6 +306,8 @@ check(ench, "Gear Planner enchant " .. full.enchantItem.n .. " shown (" .. #FLT.
 check(#FLT.BOOK_REWARD_TIERS == 1 and FLT.BOOK_REWARD_TIERS[1].questID == full.tier.questID, "book reward tier shown")
 check(FLT.ZONE_LEVELS[fm[1]] ~= nil, "entered zone's range still shown")
 check(#FLT.WEAPON_TRAINERS >= 1, "weapon master still shown")
+check(FLT.QUEST_PINS[full.giver.map]:find("," .. full.giver.name, 1, true) ~= nil, "met quest giver still shown")
+check(NS.CounterText("dungeons") == "4 of 37 discovered", "options page count: " .. NS.CounterText("dungeons"))
 check(#FLT.ARMORY_SETS >= 1 and FLT.ARMORY_SETS[1].i[1][1] == full.firstSetItem, "set with the seen item shown (" .. #FLT.ARMORY_SETS .. " sets)")
 check(FLT.ARMORY_SETS[1].n == full.firstSet .. " (1/" .. full.firstSetSize .. " seen)", "set name shows pieces seen: " .. FLT.ARMORY_SETS[1].n)
 check(#FLT.PET_FAMILIES == 1 and FLT.PET_FAMILIES[1].name == "Bear" and #FLT.PET_FAMILIES[1].tames == 1, "Bear family with the tamed beast")
@@ -280,14 +315,30 @@ local lines = {}
 for l in FLT.QUEST_REWARDS.items:gmatch("[^\n]+") do lines[#lines + 1] = l end
 check(#lines >= 1 and FLT.QUEST_REWARDS.items:find(full.rewardLine, 1, true), #lines .. " Gear Planner reward line(s) of the offered quest shown")
 
--- 3. OneForAll data in an unexpected shape ---------------------------------------------------------------
-print("Session 3: OneForAll changed its dungeon data")
+-- 3. Parts switched off in the options ---------------------------------------------------------------------
+print("Session 3: Dungeons and Library Books switched off")
+FLT, NS, full = session({}, { off = { dungeons = true, books = true } })
+check(#FLT.DUNGEONS == full.dungeons, "all dungeons shown")
+check(#FLT.BOOKS == full.books, "all books shown")
+check(#FLT.BOOK_REWARD_TIERS == 3, "all book reward tiers shown")
+check(#FLT.MAP_LANDMARKS.flight == 0, "flight masters still hidden")
+fire("PLAYER_LOGIN"); runTimers()
+world.instance = { name = "The Deadmines", kind = "party", id = 36 }
+fire("PLAYER_ENTERING_WORLD"); runTimers()
+check(#popups == 0, "no reload prompt while dungeons are switched off")
+check(_G.OneForAllNoSpoilersCharDB.dungeons["The Deadmines"], "entering still recorded")
+NS.SetOn("dungeons", true)
+check(NS.SwitchesChanged(), "switching dungeons back on is noticed as needing a reload")
+
+-- 4. OneForAll data in an unexpected shape ---------------------------------------------------------------
+print("Session 4: OneForAll changed its dungeon data")
 chat, popups, timers, tickers = {}, {}, {}, {}
 world = { spells = {}, bags = {}, bagList = {} }
 api()
 FLT = loadOneForAll()
 FLT.DUNGEONS[1] = "something new"
 _G.OneForAllNoSpoilersCharDB = nil
+_G.OneForAllNoSpoilersDB = nil
 loadAddon()
 fire("ADDON_LOADED", "OneForAll_NoSpoilers")
 check(#FLT.DUNGEONS == full.dungeons, "dungeon list left untouched")

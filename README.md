@@ -14,6 +14,7 @@ Progress is saved **per character**. A new alt starts with everything hidden.
 |---|---|
 | **Dungeons & raids**: the Dungeons tab, entrance icons, "Drops from" tooltips, quest sharing | You've been inside the dungeon. A popup then offers a reload to add it. |
 | **Map landmarks**: flight masters, ships, zeppelins, the tram, zone transitions, Skyborne spots | You've been within about 80–100 yards. They show on the map straight away. |
+| **Quest givers on the world map** (the `!` icons) | You've been within about 80–100 yards of the giver. Turn-ins (`?`) always show, as they're only for quests in your log. |
 | **Library Books**: map icons, the "book nearby" alert, the Books tab | You've been within about 80–100 yards, or picked the book up. The Books tab updates after a reload. |
 | **Library Book reward tiers**: the rewards for turning in 10, 20, … books (Books tab) | You've seen that reward quest |
 | **Zone level ranges**: top right of a zone's map, and after zone names on the continent map | You've been in the zone. The zone map shows it straight away; the continent map after a reload. |
@@ -27,10 +28,11 @@ Progress is saved **per character**. A new alt starts with everything hidden.
 
 Unless marked otherwise, new discoveries show up after your next `/reload` or login.
 
-**Quest icons on the world map** aren't filtered. If you don't want them, switch them off in OneForAll under *Quality of Life → World Map → Quest icons*.
+Every part can be switched off in the options (see below).
 
 ### Things you might notice
 
+- **New quest givers on the map:** OneForAll reads a zone's quest givers the first time you open that zone's map in a session. A giver you meet after that shows on the map after your next `/reload` or login.
 - **Shared wings:** entering any Dire Maul wing reveals all three, and the same goes for both halves of Blackrock Spire. The game reports the same dungeon for each wing. Scarlet Monastery's wings are told apart correctly.
 - **Set piece counts:** an Armory set lists only the pieces you've seen. Until you've seen them all, its name shows how many, for example "Battlegear of Glory (1/6 seen)". OneForAll's own counter only counts the listed pieces, so it reads "Owned 1 / 1".
 - **Pet alerts:** OneForAll's "this beast teaches …" alert only works for beasts you've already tamed.
@@ -47,11 +49,20 @@ OneForAll must be installed too. This addon needs it.
 
 Don't use GitHub's *Code → Download ZIP*. That folder is named after the repository, and the game only loads it if it's renamed to `OneForAll_NoSpoilers`.
 
+## Options
+
+*Options → AddOns → OneForAll NoSpoilers*, or type `/ofans`. There's one switch per part, each with a short description and your progress (for example "4 of 37 discovered").
+
+- **What a switch does:** a part that's switched off leaves OneForAll alone, so it shows everything, but discoveries are still recorded. Switching it back on later loses nothing.
+- **Account-wide:** switches apply to all characters. Progress stays per character.
+- **Reloading:** changes take effect after a reload, and a *Reload now* button appears once you've changed something.
+
 ## Commands
 
 | Command | What it does |
 |---|---|
-| `/ofans` or `/ofans status` | Shows each part: what's discovered, what's hidden, and whether it's running |
+| `/ofans` | Opens the options |
+| `/ofans status` | Prints each part in chat: what's discovered, what's hidden, and whether it's running |
 | `/ofans reveal <dungeon>` | Marks a dungeon as discovered by hand, e.g. `/ofans reveal deadmines` |
 | `/ofans legacy` | Prints what the game reports about the Legacy System (Forever's achievements). This is a diagnostic only. |
 
@@ -67,9 +78,9 @@ Files:
 
 | File | Part |
 |---|---|
-| `Core.lua` | Loading, safety checks, the reload prompt, slash commands |
+| `Core.lua` | Loading, safety checks, switches, the reload prompt, slash commands |
 | `Items.lua` | Remembers items owned or seen, for the Armory and enchant parts |
-| `Places.lua` | Map landmarks, Library Books and weapon masters, plus the trail of places you've been |
+| `Places.lua` | Map landmarks, quest givers, Library Books and weapon masters, plus the trail of places you've been |
 | `Zones.lua` | Zone level ranges |
 | `Dungeons.lua` | Dungeons and raids |
 | `Professions.lua` | Recipes and camping items |
@@ -78,6 +89,7 @@ Files:
 | `Quests.lua` | Gear Planner quest rewards and Library Book reward tiers |
 | `Enchants.lua` | Gear Planner enchant suggestions |
 | `Misc.lua` | What's New and Remove Fog |
+| `Options.lua` | The options page |
 
 ## Testing
 

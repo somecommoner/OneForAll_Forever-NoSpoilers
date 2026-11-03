@@ -40,6 +40,52 @@ end
 
 function NS.IsSecret(v) return issecretvalue ~= nil and issecretvalue(v) end
 
+-- Switches (Options > AddOns > OneForAll NoSpoilers), account-wide: OneForAllNoSpoilersDB.off[key] = true when a
+-- part is switched off. They are read once at load: a switched-off part leaves OneForAll's data alone (OneForAll
+-- shows everything for it) but keeps recording discoveries, so switching it on again later loses nothing.
+NS.SWITCHES = {
+  { key = "dungeons", part = "dungeons", label = "Dungeons & raids", desc = "Dungeons tab, entrance icons, \"Drops from\" lines and quest sharing: once you've been inside." },
+  { key = "landmarks", part = "places", label = "Map landmarks", desc = "Flight masters, ships, zeppelins, the tram, zone transitions and Skyborne spots: once you've been near." },
+  { key = "questgivers", part = "places", label = "Quest givers on the map", desc = "The world map's ! icons: once you've been near the giver. Turn-ins (?) always show." },
+  { key = "books", part = "places", label = "Library Books", desc = "Book icons, the nearby alert and the Books tab: once you've been near or picked one up. Reward tiers: once you've seen the quest." },
+  { key = "weaponmasters", part = "places", label = "Weapon masters", desc = "Who teaches which weapon (trainer window): once you've been near." },
+  { key = "zones", part = "zones", label = "Zone level ranges", desc = "The level range on the world map: once you've been in the zone." },
+  { key = "recipes", part = "professions", label = "Recipes", desc = "Recipe browser, Merchant's Favor, Crafting List and camping items: recipes you've learnt." },
+  { key = "armory", part = "armory", label = "Armory", desc = "Item sets and reputation rewards: items you've owned or seen." },
+  { key = "pets", part = "pets", label = "Hunter pets", desc = "Families, tameable beasts, ability teachers and rare tames: what you've tamed." },
+  { key = "gearquests", part = "quests", label = "Gear Planner quest rewards", desc = "Quest reward suggestions: quests you've seen." },
+  { key = "enchants", part = "enchants", label = "Gear Planner enchants", desc = "Enchant suggestions: recipe learnt, or the item owned or seen." },
+  { key = "news", part = "news", label = "Hide What's New", desc = "OneForAll's \"Noteworthy changes\" window." },
+  { key = "fog", part = "fog", label = "Disable Remove Fog", desc = "OneForAll's option that uncovers unexplored parts of the map." },
+}
+
+local loadedOff = {} -- the switches as they were at load (what is in effect this session)
+function NS.IsOn(key) return not loadedOff[key] end
+function NS.IsOnSaved(key) return not (OneForAllNoSpoilersDB and OneForAllNoSpoilersDB.off[key]) end
+function NS.SetOn(key, on) OneForAllNoSpoilersDB.off[key] = (not on) and true or nil end
+function NS.SwitchesChanged()
+  for _, s in ipairs(NS.SWITCHES) do
+    if NS.IsOn(s.key) ~= NS.IsOnSaved(s.key) then return true end
+  end
+  return false
+end
+
+-- Short progress text per switch for the options page: NS.Counter(key, function() return "4 of 37 found" end).
+-- A switch can have several (Library Books: books and reward tiers); they are joined.
+NS.counters = {}
+function NS.Counter(key, fn)
+  NS.counters[key] = NS.counters[key] or {}
+  table.insert(NS.counters[key], fn)
+end
+function NS.CounterText(key)
+  local out = {}
+  for _, fn in ipairs(NS.counters[key] or {}) do
+    local ok, text = pcall(fn)
+    if ok and type(text) == "string" and text ~= "" then out[#out + 1] = text end
+  end
+  return table.concat(out, "  ·  ")
+end
+
 -- Events ---------------------------------------------------------------------------------------------
 
 local frame = CreateFrame("Frame")
@@ -87,6 +133,9 @@ local function start()
     return
   end
   NS.FLT = FLT
+  if type(OneForAllNoSpoilersDB) ~= "table" then OneForAllNoSpoilersDB = {} end
+  if type(OneForAllNoSpoilersDB.off) ~= "table" then OneForAllNoSpoilersDB.off = {} end
+  for key, v in pairs(OneForAllNoSpoilersDB.off) do loadedOff[key] = v and true or nil end
   if type(OneForAllNoSpoilersCharDB) ~= "table" then OneForAllNoSpoilersCharDB = {} end
   local db = OneForAllNoSpoilersCharDB
   db.version = 1
@@ -141,7 +190,7 @@ local function status()
     else state = "not started" end
     NS.Print(m.label .. ": " .. state)
   end
-  NS.Print("Commands: /ofans status, /ofans reveal <dungeon>, /ofans legacy")
+  NS.Print("Commands: /ofans (options), /ofans status, /ofans reveal <dungeon>, /ofans legacy")
 end
 
 -- Diagnostic for the Legacy System (Forever's achievements): can addons read it, and does it track
@@ -181,7 +230,9 @@ SlashCmdList.ONEFORALLNOSPOILERS = function(msg)
   elseif cmd == "reveal" then
     local m = NS.byKey.dungeons
     if m and m.active and m.reveal then m.reveal(rest) else NS.Print("The dungeon part is not running.") end
-  else
+  elseif cmd == "status" or not NS.OpenOptions then
     status()
+  else
+    NS.OpenOptions()
   end
 end
