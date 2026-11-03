@@ -126,7 +126,7 @@ local function session(saved)
   local full = {
     dungeons = #FLT.DUNGEONS, flight = #FLT.MAP_LANDMARKS.flight, books = #FLT.BOOKS,
     firstFlight = FLT.MAP_LANDMARKS.flight[1], firstBook = FLT.BOOKS[1],
-    firstSetItem = FLT.ARMORY_SETS[1].i[1][1], firstSet = FLT.ARMORY_SETS[1].n,
+    firstSetItem = FLT.ARMORY_SETS[1].i[1][1], firstSet = FLT.ARMORY_SETS[1].n, firstSetSize = #FLT.ARMORY_SETS[1].i,
     recipe = FLT.PROFESSION_RECIPES["Alchemy"][1].s,
     overlays = next(FLT.MAP_OVERLAYS) ~= nil,
     rewardLine = FLT.QUEST_REWARDS.items:match("^[^\n]+"),
@@ -227,6 +227,7 @@ for _, x in ipairs(FLT.BOOKS) do if x.itemId == full.firstBook.itemId then again
 check(again and #FLT.BOOKS == 2, "both revealed books still shown")
 check(#FLT.PROFESSION_RECIPES["Alchemy"] == 1, "learnt recipe shown")
 check(#FLT.ARMORY_SETS >= 1 and FLT.ARMORY_SETS[1].i[1][1] == full.firstSetItem, "set with the seen item shown (" .. #FLT.ARMORY_SETS .. " sets)")
+check(FLT.ARMORY_SETS[1].n == full.firstSet .. " (1/" .. full.firstSetSize .. " seen)", "set name shows pieces seen: " .. FLT.ARMORY_SETS[1].n)
 check(#FLT.PET_FAMILIES == 1 and FLT.PET_FAMILIES[1].name == "Bear" and #FLT.PET_FAMILIES[1].tames == 1, "Bear family with the tamed beast")
 local lines = {}
 for l in FLT.QUEST_REWARDS.items:gmatch("[^\n]+") do lines[#lines + 1] = l end

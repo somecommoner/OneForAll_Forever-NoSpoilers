@@ -29,7 +29,7 @@ Unless marked otherwise, new discoveries show up after your next `/reload` or lo
 ### Things you might notice
 
 - **Shared wings:** entering any Dire Maul wing reveals all three, and the same goes for both halves of Blackrock Spire. The game reports the same dungeon for each wing. Scarlet Monastery's wings are told apart correctly.
-- **Set piece counts:** an Armory set lists only the pieces you've seen, so its counter reads "Owned 1 / 1", not "1 / 8".
+- **Set piece counts:** an Armory set lists only the pieces you've seen. Until you've seen them all, its name shows how many, for example "Battlegear of Glory (1/6 seen)". OneForAll's own counter only counts the listed pieces, so it reads "Owned 1 / 1".
 - **Pet alerts:** OneForAll's "this beast teaches …" alert only works for beasts you've already tamed.
 
 ## Installing

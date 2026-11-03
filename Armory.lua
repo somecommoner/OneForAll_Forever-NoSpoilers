@@ -63,10 +63,18 @@ local function validItems(items)
   return true
 end
 
--- keeps the seen items of each entry and drops entries with none; returns shown, total
-local function filter(list)
+-- keeps the seen items of each entry and drops entries with none; returns shown, total.
+-- markNames: an entry with pieces still unseen gets "(seen/all seen)" after its name, as OneForAll counts
+-- the pieces it is given ("Owned 1 / 1").
+local function filter(list, markNames)
   local total = #list
-  for _, e in ipairs(list) do NS.FilterInPlace(e.i, function(it) return db.items[it[1]] end) end
+  for _, e in ipairs(list) do
+    local all = #e.i
+    NS.FilterInPlace(e.i, function(it) return db.items[it[1]] end)
+    if markNames and #e.i > 0 and #e.i < all and type(e.n) == "string" then
+      e.n = string.format("%s (%d/%d seen)", e.n, #e.i, all)
+    end
+  end
   NS.FilterInPlace(list, function(e) return #e.i > 0 end)
   return #list, total
 end
@@ -86,7 +94,7 @@ function M.apply(FLT, saved)
       for _, it in ipairs(e.i) do relevant[it[1]] = true end
     end
   end
-  if type(sets) == "table" then counts.sets = { filter(sets) } end
+  if type(sets) == "table" then counts.sets = { filter(sets, true) } end
   if type(rep) == "table" then counts.factions = { filter(rep) } end
   return true
 end
