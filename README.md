@@ -34,11 +34,13 @@ Unless marked otherwise, new discoveries show up after your next `/reload` or lo
 
 ## Installing
 
-1. Download this repository: *Code → Download ZIP*.
-2. Put the folder into `World of Warcraft/_forever_/Interface/AddOns/` and **rename it to `OneForAll_NoSpoilers`**. The folder name has to match the `.toc` file.
-3. Make sure OneForAll is installed too. This addon needs it.
+OneForAll must be installed too. This addon needs it.
 
-With git: `git clone https://github.com/somecommoner/OneForAll_Forever-NoSpoilers.git OneForAll_NoSpoilers`
+**With WowUp:** go to *Get Addons → Install from URL* and paste `https://github.com/somecommoner/OneForAll_Forever-NoSpoilers`. WowUp installs the latest release and updates it when a new one comes out.
+
+**By hand:** download `OneForAll_NoSpoilers-<version>-forever.zip` from [Releases](https://github.com/somecommoner/OneForAll_Forever-NoSpoilers/releases) and unpack it into `World of Warcraft/_forever_/Interface/AddOns/`.
+
+Don't use GitHub's *Code → Download ZIP*. That folder is named after the repository, and the game only loads it if it's renamed to `OneForAll_NoSpoilers`.
 
 ## Commands
 
@@ -78,6 +80,10 @@ lua5.4 tools/test.lua "<path to>/Interface/AddOns/OneForAll" .
 ```
 
 Run it after an OneForAll update to check that the data still lines up.
+
+## Releasing
+
+Raise `## Version:` in the `.toc` file, commit, then tag and push, for example `git tag v0.1.1 && git push origin v0.1.1`. The GitHub Action in `.github/workflows/release.yml` builds the zip and publishes the release, and WowUp picks it up from there.
 
 ## License
 

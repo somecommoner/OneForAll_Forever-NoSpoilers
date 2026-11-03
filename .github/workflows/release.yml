@@ -1,0 +1,38 @@
+# Builds the addon zip and publishes a GitHub release whenever a version tag (v1.2.3) is pushed.
+# WowUp ("Install from URL") picks the zip through release.json (flavor "forever", the BigWigs packager
+# format) or, as a fallback, through the "-forever.zip" ending of its name.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the addon zip
+        run: |
+          set -euo pipefail
+          ADDON=OneForAll_NoSpoilers
+          VERSION="${GITHUB_REF_NAME#v}"
+          INTERFACE=$(sed -n 's/^## Interface: *//p' "$ADDON.toc" | tr -d '\r' | cut -d, -f1)
+          mkdir -p "build/$ADDON"
+          cp "$ADDON.toc" *.lua README.md LICENSE "build/$ADDON/"
+          sed -i "s/^## Version: .*/## Version: $VERSION/" "build/$ADDON/$ADDON.toc"
+          ZIP="$ADDON-$VERSION-forever.zip"
+          (cd build && zip -r "../$ZIP" "$ADDON")
+          printf '{"releases":[{"name":"%s","version":"%s","filename":"%s","nolib":false,"metadata":[{"flavor":"forever","interface":%s}]}]}\n' \
+            "$ADDON" "$VERSION" "$ZIP" "$INTERFACE" > release.json
+          cat release.json
+          echo "ZIP=$ZIP" >> "$GITHUB_ENV"
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" "$ZIP" release.json --title "$GITHUB_REF_NAME" --generate-notes
