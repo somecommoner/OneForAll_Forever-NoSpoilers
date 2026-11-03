@@ -47,12 +47,17 @@ local function api()
     GetWorldPosFromMapPos = function(mapID, v) return 1, CreateVector2D(mapID * 2000 + v.x * 1000, v.y * 1000) end,
     GetBestMapForUnit = function() return world.map end,
     GetPlayerMapPosition = function() return world.x and CreateVector2D(world.x, world.y) end,
+    GetMapInfo = function(id)
+      if id == 9999 then return { mapID = id, mapType = 2 } end
+      return { mapID = id, mapType = 3, parentMapID = 9999 }
+    end,
   }
   _G.IsInInstance = function() return world.instance ~= nil, world.instance and world.instance.kind end
   _G.GetInstanceInfo = function()
     local i = world.instance or {}
     return i.name, i.kind, 0, "", 5, 0, false, i.id
   end
+  _G.Enum = { UIMapType = { Continent = 2 } }
   _G.UnitClass = function() return "Hunter", "HUNTER" end
   _G.UnitExists = function(u) return u == "pet" and world.pet ~= nil end
   _G.UnitGUID = function(u) return u == "pet" and world.pet and world.pet.guid or nil end
@@ -128,6 +133,17 @@ local function session(saved)
     firstFlight = FLT.MAP_LANDMARKS.flight[1], firstBook = FLT.BOOKS[1],
     firstSetItem = FLT.ARMORY_SETS[1].i[1][1], firstSet = FLT.ARMORY_SETS[1].n, firstSetSize = #FLT.ARMORY_SETS[1].i,
     recipe = FLT.PROFESSION_RECIPES["Alchemy"][1].s,
+    zones = (function() local n = 0; for _ in pairs(FLT.ZONE_LEVELS) do n = n + 1 end; return n end)(),
+    weaponMaster = FLT.WEAPON_TRAINERS[1],
+    campingItem = FLT.CAMPING_PROFESSIONS[1].items[1],
+    campingProf = FLT.CAMPING_PROFESSIONS[1].profession,
+    enchantItem = (function() for _, o in ipairs(FLT.ENCHANT_OPTIONS) do if o.i and not o.s then return o end end end)(),
+    enchantCount = #FLT.ENCHANT_OPTIONS,
+    tier = FLT.BOOK_REWARD_TIERS[1],
+    campSpell = (function()
+      local item = FLT.CAMPING_PROFESSIONS[1].items[1].id
+      for _, list in pairs(FLT.PROFESSION_RECIPES) do for _, r in ipairs(list) do if r.i == item then return r.s end end end
+    end)(),
     overlays = next(FLT.MAP_OVERLAYS) ~= nil,
     rewardLine = FLT.QUEST_REWARDS.items:match("^[^\n]+"),
   }
@@ -156,12 +172,17 @@ check(#FLT.ARMORY_SETS == 0 and #FLT.ARMORY_REPUTATION == 0, "no armory sets or 
 check(#FLT.PET_FAMILIES == 0 and #FLT.PET_RARES == 0, "no pet families or rares shown")
 check(full.overlays and next(FLT.MAP_OVERLAYS) == nil, "Remove Fog data emptied")
 check(FLT.QUEST_REWARDS.items == "", "no Gear Planner quest rewards shown")
+check(next(FLT.ZONE_LEVELS) == nil and full.zones > 30, "no zone level ranges shown (of " .. full.zones .. ")")
+check(#FLT.WEAPON_TRAINERS == 0, "no weapon masters shown")
+check(#FLT.CAMPING_PROFESSIONS == 0, "no camping items shown")
+check(#FLT.ENCHANT_OPTIONS == 0 and full.enchantCount > 50, "no Gear Planner enchants shown (of " .. full.enchantCount .. ")")
+check(#FLT.BOOK_REWARD_TIERS == 0, "no book reward tiers shown")
 FLT.ShowNews()
 check(not FLT.newsShown, "What's New does not open")
 
 fire("PLAYER_LOGIN")
 runTimers()
-check(#tickers == 1, "position ticker started")
+check(#tickers == 2, "position and zone tickers started")
 
 -- walk towards the first flight master (fake world: 1 % of a map = 10 yards)
 local fm = full.firstFlight
@@ -176,6 +197,15 @@ world.x = fm[2] / 100 + 0.05 -- 50 yards
 tickers[1](); runTimers()
 check(#FLT.MAP_LANDMARKS.flight >= 1, "flight master revealed at 50 yards")
 check(FLT.resets > 0, "OneForAll's map index asked to rebuild")
+fire("ZONE_CHANGED_NEW_AREA"); runTimers()
+check(FLT.ZONE_LEVELS[fm[1]] ~= nil, "zone level range shown straight away after entering the zone")
+local zn = 0; for _ in pairs(FLT.ZONE_LEVELS) do zn = zn + 1 end
+check(zn == 1, "only that zone's range shown")
+-- walk up to a weapon master
+local wm = full.weaponMaster
+world.map, world.x, world.y = wm.map, wm.x / 100 + 0.02, wm.y / 100
+tickers[1](); runTimers()
+check(#FLT.WEAPON_TRAINERS >= 1, "weapon master " .. wm.name .. " revealed when near")
 
 -- walk up to the first book
 local b = full.firstBook
@@ -204,6 +234,12 @@ fire("UNIT_PET", "player")
 local rewardQuest = tonumber(full.rewardLine:match("^%d+,%d+,(%d+)"))
 world.questDetail = rewardQuest
 fire("QUEST_DETAIL")
+world.questDetail = full.tier.questID
+fire("QUEST_DETAIL")
+local campSpell = full.campSpell
+world.spells[campSpell] = true
+fire("SPELLS_CHANGED"); runTimers()
+fire("CHAT_MSG_LOOT", "You receive loot: |cffffffff|Hitem:" .. full.enchantItem.i .. "::::::::60:::::|h[Kit]|h|r.")
 
 local db = _G.OneForAllNoSpoilersCharDB
 check(db.recipes[full.recipe], "recipe recorded as learnt")
@@ -225,7 +261,18 @@ check(#FLT.MAP_LANDMARKS.flight >= 1 and FLT.MAP_LANDMARKS.flight[1][5] == fm[5]
 local again = false
 for _, x in ipairs(FLT.BOOKS) do if x.itemId == full.firstBook.itemId then again = true end end
 check(again and #FLT.BOOKS == 2, "both revealed books still shown")
-check(#FLT.PROFESSION_RECIPES["Alchemy"] == 1, "learnt recipe shown")
+local hasRecipe = false
+for _, r in ipairs(FLT.PROFESSION_RECIPES["Alchemy"]) do if r.s == full.recipe then hasRecipe = true end end
+check(hasRecipe, "learnt recipe shown")
+check(#FLT.CAMPING_PROFESSIONS == 1 and FLT.CAMPING_PROFESSIONS[1].profession == full.campingProf
+  and #FLT.CAMPING_PROFESSIONS[1].items == 1 and FLT.CAMPING_PROFESSIONS[1].items[1].id == full.campingItem.id,
+  "camping item " .. full.campingItem.name .. " shown")
+local ench = false
+for _, o in ipairs(FLT.ENCHANT_OPTIONS) do if o == full.enchantItem or o.i == full.enchantItem.i then ench = true end end
+check(ench, "Gear Planner enchant " .. full.enchantItem.n .. " shown (" .. #FLT.ENCHANT_OPTIONS .. " options)")
+check(#FLT.BOOK_REWARD_TIERS == 1 and FLT.BOOK_REWARD_TIERS[1].questID == full.tier.questID, "book reward tier shown")
+check(FLT.ZONE_LEVELS[fm[1]] ~= nil, "entered zone's range still shown")
+check(#FLT.WEAPON_TRAINERS >= 1, "weapon master still shown")
 check(#FLT.ARMORY_SETS >= 1 and FLT.ARMORY_SETS[1].i[1][1] == full.firstSetItem, "set with the seen item shown (" .. #FLT.ARMORY_SETS .. " sets)")
 check(FLT.ARMORY_SETS[1].n == full.firstSet .. " (1/" .. full.firstSetSize .. " seen)", "set name shows pieces seen: " .. FLT.ARMORY_SETS[1].n)
 check(#FLT.PET_FAMILIES == 1 and FLT.PET_FAMILIES[1].name == "Bear" and #FLT.PET_FAMILIES[1].tames == 1, "Bear family with the tamed beast")

@@ -1,7 +1,7 @@
 local _, NS = ...
 
--- Places: map landmarks (flight masters, ships, zeppelins, the tram, zone transitions, Skyborne spots) and
--- Library Books appear once this character has been close to them.
+-- Places: map landmarks (flight masters, ships, zeppelins, the tram, zone transitions, Skyborne spots), Library
+-- Books and weapon masters (trainer window) appear once this character has been close to them.
 --
 -- Where the character has been is kept as a trail of cells: about 40 yards in world coordinates, plus 1 % of
 -- the zone map as a fallback for clients or places without world coordinates. A place counts as "been close"
@@ -12,7 +12,7 @@ local _, NS = ...
 -- so we ask it to rebuild with FLT.MapLandmarks._reset; if a later OneForAll version drops that function,
 -- new icons simply appear after the next /reload instead.
 
-local M = { key = "places", label = "Map icons and books" }
+local M = { key = "places", label = "Places" }
 NS.AddModule(M)
 
 local WORLD_CELL = 40 -- yards
@@ -119,6 +119,13 @@ end
 local function arrayPos(item)
   local mapID, x, y = item[1], item[2], item[3]
   if type(mapID) == "number" and type(x) == "number" and type(y) == "number" then return mapID, x / 100, y / 100 end
+end
+
+-- { map=, x=, y= } in percent: OneForAll's weapon masters
+local function fieldPos(item)
+  if type(item.map) == "number" and type(item.x) == "number" and type(item.y) == "number" then
+    return item.map, item.x / 100, item.y / 100
+  end
 end
 
 local function bookPos(b)
@@ -235,6 +242,7 @@ function M.apply(FLT, saved)
     filterList("convergences", FLT.SKYBORNE_SPOTS.conv, arrayPos, { needPos = true })
   end
   filterList("zone transitions", FLT.ZONE_TRANSITIONS, arrayPos, { needPos = true })
+  filterList("weapon masters", FLT.WEAPON_TRAINERS, fieldPos, { needPos = true })
   filterList("books", FLT.BOOKS, bookPos, {
     known = function(b) return b.itemId ~= nil and db.books[b.itemId] end,
     onReveal = function(b) if b.itemId ~= nil then db.books[b.itemId] = true end end,
@@ -257,11 +265,13 @@ M.events = {
 function M.status()
   local icons, iconsTotal = 0, 0
   for name, c in pairs(counts) do
-    if name ~= "books" then icons, iconsTotal = icons + c[1], iconsTotal + c[2] end
+    if name ~= "books" and name ~= "weapon masters" then icons, iconsTotal = icons + c[1], iconsTotal + c[2] end
   end
   local b = counts.books or { 0, 0 }
+  local w = counts["weapon masters"] or { 0, 0 }
   local cells = 0
   for _, t in pairs(trail.w) do for _ in pairs(t) do cells = cells + 1 end end
   local liveText = live == false and ", new icons after /reload" or ""
-  return string.format("%d of %d map icons, %d of %d books, %d places visited%s", icons, iconsTotal, b[1], b[2], cells, liveText)
+  return string.format("%d of %d map icons, %d of %d books, %d of %d weapon masters, %d places visited%s", icons,
+    iconsTotal, b[1], b[2], w[1], w[2], cells, liveText)
 end

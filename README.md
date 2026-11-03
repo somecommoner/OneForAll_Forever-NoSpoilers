@@ -15,9 +15,12 @@ Progress is saved **per character**. A new alt starts with everything hidden.
 | **Dungeons & raids**: the Dungeons tab, entrance icons, "Drops from" tooltips, quest sharing | You've been inside the dungeon. A popup then offers a reload to add it. |
 | **Map landmarks**: flight masters, ships, zeppelins, the tram, zone transitions, Skyborne spots | You've been within about 80–100 yards. They show on the map straight away. |
 | **Library Books**: map icons, the "book nearby" alert, the Books tab | You've been within about 80–100 yards, or picked the book up. The Books tab updates after a reload. |
-| **Professions**: the recipe browser, Merchant's Favor, the Crafting List | You've learnt the recipe |
+| **Library Book reward tiers**: the rewards for turning in 10, 20, … books (Books tab) | You've seen that reward quest |
+| **Zone level ranges**: top right of a zone's map, and after zone names on the continent map | You've been in the zone. The zone map shows it straight away; the continent map after a reload. |
+| **Weapon masters**: who teaches which weapon, and where (trainer window) | You've been within about 80–100 yards. They show straight away. |
+| **Professions**: the recipe browser, Merchant's Favor, the Crafting List, camping items | You've learnt the recipe |
 | **Armory**: item sets and reputation rewards | You've owned the item, or the game has shown it to you: a loot window, a loot roll, a loot chat line, at a vendor, or as a quest reward |
-| **Gear Planner** | It follows the rows above: dungeon loot from dungeons you've been in, crafted items from your recipes, set and rep items you've seen, and quest rewards from quests you've seen (offered, in your log or completed) |
+| **Gear Planner** | It follows the rows above: dungeon loot from dungeons you've been in, crafted items from your recipes, set and rep items you've seen, and quest rewards from quests you've seen (offered, in your log or completed). Enchant suggestions show once you've learnt the recipe or owned or seen the item that applies it. |
 | **Hunter pets**: families, tameable beasts, ability teachers, rare tames | You've tamed that beast, or had a pet of that family |
 | **What's New** window | Never |
 | **Remove Fog** (Quality of Life) | Never: it would uncover areas you haven't explored |
@@ -31,6 +34,8 @@ Unless marked otherwise, new discoveries show up after your next `/reload` or lo
 - **Shared wings:** entering any Dire Maul wing reveals all three, and the same goes for both halves of Blackrock Spire. The game reports the same dungeon for each wing. Scarlet Monastery's wings are told apart correctly.
 - **Set piece counts:** an Armory set lists only the pieces you've seen. Until you've seen them all, its name shows how many, for example "Battlegear of Glory (1/6 seen)". OneForAll's own counter only counts the listed pieces, so it reads "Owned 1 / 1".
 - **Pet alerts:** OneForAll's "this beast teaches …" alert only works for beasts you've already tamed.
+- **Enchant suggestions:** enchanting enchants are spells, not items, so if you're not an enchanter you'll only see the ones applied with items (armour kits, scopes and so on).
+- **Left as they are:** class trainer spells, talents, class quest milestones, the Merchant's Favor guide and profession trainers. They're game mechanics or help you find things.
 
 ## Installing
 
@@ -63,12 +68,15 @@ Files:
 | File | Part |
 |---|---|
 | `Core.lua` | Loading, safety checks, the reload prompt, slash commands |
-| `Places.lua` | Map landmarks and Library Books, plus the trail of places you've been |
+| `Items.lua` | Remembers items owned or seen, for the Armory and enchant parts |
+| `Places.lua` | Map landmarks, Library Books and weapon masters, plus the trail of places you've been |
+| `Zones.lua` | Zone level ranges |
 | `Dungeons.lua` | Dungeons and raids |
-| `Professions.lua` | Recipes |
+| `Professions.lua` | Recipes and camping items |
 | `Armory.lua` | Item sets and reputation rewards (items owned or seen) |
 | `Pets.lua` | Hunter pets |
-| `Quests.lua` | Gear Planner quest rewards |
+| `Quests.lua` | Gear Planner quest rewards and Library Book reward tiers |
+| `Enchants.lua` | Gear Planner enchant suggestions |
 | `Misc.lua` | What's New and Remove Fog |
 
 ## Testing

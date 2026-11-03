@@ -1,16 +1,19 @@
 ## Interface: 16001
 ## Title: OneForAll NoSpoilers
-## Notes: Hides OneForAll's dungeons, map icons, books, recipes, sets, pets and Gear Planner quest rewards until this character has discovered them. Leaves OneForAll itself unchanged.
+## Notes: Hides OneForAll content (dungeons, map icons, books, recipes, sets, pets, zone level ranges and Gear Planner suggestions) until this character has discovered it. Leaves OneForAll itself unchanged.
 ## Author: somecommoner (unofficial companion to OneForAll by Smoergi)
-## Version: 0.1.0
+## Version: 0.1.1
 ## Dependencies: OneForAll
 ## SavedVariablesPerCharacter: OneForAllNoSpoilersCharDB
 
 Core.lua
+Items.lua
 Places.lua
+Zones.lua
 Dungeons.lua
 Professions.lua
 Armory.lua
 Pets.lua
 Quests.lua
+Enchants.lua
 Misc.lua

@@ -12,6 +12,11 @@ local allSpells = {} -- every recipe spell in OneForAll's data
 local byItem = {} -- crafted item -> recipe spell
 local total, shown = 0, 0
 
+-- other parts (Gear Planner enchants) add recipe spells to watch for
+function NS.WatchRecipeSpell(spell)
+  if type(spell) == "number" then allSpells[spell] = true end
+end
+
 local function learn(spell)
   if type(spell) == "number" and allSpells[spell] then db.recipes[spell] = true end
 end
@@ -114,6 +119,26 @@ function M.apply(FLT, saved)
     NS.FilterInPlace(merchant, function(r) local s = merchantSpell(r); return s and db.recipes[s] end)
   else
     NS.Print("Merchant's Favor recipes are not hidden: their data looks different.")
+  end
+
+  -- Camping items (Professions tab): those whose recipe is learnt, matched by the crafted item
+  local camping = FLT.CAMPING_PROFESSIONS
+  local campingOK = type(camping) == "table"
+  if campingOK then
+    for _, p in ipairs(camping) do
+      if type(p) ~= "table" or type(p.items) ~= "table" then campingOK = false; break end
+      for _, it in ipairs(p.items) do
+        if type(it) ~= "table" then campingOK = false; break end
+      end
+    end
+  end
+  if campingOK then
+    for _, p in ipairs(camping) do
+      NS.FilterInPlace(p.items, function(it) local s = byItem[it.id]; return s and db.recipes[s] end)
+    end
+    NS.FilterInPlace(camping, function(p) return #p.items > 0 end)
+  elseif camping ~= nil then
+    NS.Print("Camping items are not hidden: their data looks different.")
   end
   return true
 end
