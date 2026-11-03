@@ -1,0 +1,250 @@
+-- Offline test for OneForAll_NoSpoilers: loads OneForAll's real data files and our addon with a small
+-- stand-in for the WoW API, then plays through a fresh character, discoveries and a second login.
+-- Usage: lua5.4 test_nospoilers.lua <OneForAll dir> <NoSpoilers dir>
+
+local OFA, NSDIR = arg[1], arg[2]
+local unpack = table.unpack
+local fails = 0
+local function check(cond, what)
+  if cond then print("  ok   " .. what) else print("  FAIL " .. what); fails = fails + 1 end
+end
+
+-- WoW API stand-in -----------------------------------------------------------------------------------
+local chat, popups, timers, tickers = {}, {}, {}, {}
+local world -- per-session state
+local function api()
+  _G.wipe = function(t) for k in pairs(t) do t[k] = nil end return t end
+  _G.strsplit = function(sep, s)
+    local out = {}
+    for part in (s .. sep):gmatch("(.-)%" .. sep) do out[#out + 1] = part end
+    return unpack(out)
+  end
+  _G.DEFAULT_CHAT_FRAME = { AddMessage = function(_, m) chat[#chat + 1] = m end }
+  _G.StaticPopupDialogs = {}
+  _G.StaticPopup_Show = function(_, text) popups[#popups + 1] = text end
+  _G.ReloadUI = function() end
+  _G.SlashCmdList = {}
+  _G.C_Timer = {
+    After = function(_, fn) timers[#timers + 1] = fn end,
+    NewTicker = function(_, fn) tickers[#tickers + 1] = fn end,
+  }
+  local frames = {}
+  _G.CreateFrame = function()
+    local f = { events = {} }
+    function f:RegisterEvent(e) self.events[e] = true end
+    function f:SetScript(_, fn) self.onEvent = fn end
+    frames[#frames + 1] = f
+    return f
+  end
+  _G.fire = function(event, ...)
+    for _, f in ipairs(frames) do
+      if f.onEvent and (f.events[event]) then f.onEvent(f, event, ...) end
+    end
+  end
+  _G.CreateVector2D = function(x, y) return { x = x, y = y, GetXY = function(v) return v.x, v.y end } end
+  -- fake world: every map is a 1000 x 1000 yard square, maps side by side on continent 1
+  _G.C_Map = {
+    GetWorldPosFromMapPos = function(mapID, v) return 1, CreateVector2D(mapID * 2000 + v.x * 1000, v.y * 1000) end,
+    GetBestMapForUnit = function() return world.map end,
+    GetPlayerMapPosition = function() return world.x and CreateVector2D(world.x, world.y) end,
+  }
+  _G.IsInInstance = function() return world.instance ~= nil, world.instance and world.instance.kind end
+  _G.GetInstanceInfo = function()
+    local i = world.instance or {}
+    return i.name, i.kind, 0, "", 5, 0, false, i.id
+  end
+  _G.UnitClass = function() return "Hunter", "HUNTER" end
+  _G.UnitExists = function(u) return u == "pet" and world.pet ~= nil end
+  _G.UnitGUID = function(u) return u == "pet" and world.pet and world.pet.guid or nil end
+  _G.UnitCreatureFamily = function(u) return u == "pet" and world.pet and world.pet.family or nil end
+  _G.GetTime = function() return 100 end
+  _G.IsPlayerSpell = function(s) return world.spells[s] == true end
+  _G.GetItemCount = function(id) return world.bags[id] and 1 or 0 end
+  _G.GetInventoryItemID = function() return nil end
+  _G.C_Container = {
+    GetContainerNumSlots = function(bag) return bag == 0 and #world.bagList or 0 end,
+    GetContainerItemID = function(_, slot) return world.bagList[slot] end,
+  }
+  _G.C_QuestLog = { IsQuestFlaggedCompleted = function() return false end, GetNumQuestLogEntries = function() return 0 end,
+    GetInfo = function() return nil end }
+  _G.GetQuestID = function() return world.questDetail end
+end
+
+local function runTimers()
+  for _ = 1, 5 do
+    local list = timers; timers = {}
+    for _, fn in ipairs(list) do fn() end
+  end
+end
+
+-- Loading ---------------------------------------------------------------------------------------------
+local function tocFiles(dir, name)
+  local list = {}
+  for line in io.lines(dir .. "/" .. name) do
+    line = line:gsub("\r", "")
+    if line ~= "" and not line:match("^#") then list[#list + 1] = line:gsub("\\", "/") end
+  end
+  return list
+end
+
+local function loadOneForAll()
+  local FLT = {}
+  local isData = function(f)
+    return f:match("^Data/") or f == "Data.lua" or f == "ExtraData.lua" or f == "ProfessionData.lua"
+      or f == "DungeonRegistry.lua" or f == "DungeonData.lua"
+  end
+  for _, f in ipairs(tocFiles(OFA, "OneForAll.toc")) do
+    if isData(f) then
+      local chunk = assert(loadfile(OFA .. "/" .. f))
+      chunk("OneForAll", FLT)
+    end
+  end
+  -- the bits of OneForAll's code that we call
+  FLT.ShowNews = function() FLT.newsShown = true end
+  FLT.resets = 0
+  FLT.MapLandmarks = { _reset = function() FLT.resets = FLT.resets + 1 end, Refresh = function() end }
+  FLT.FindMapID = function(self, zone) return self.MAP_IDS[zone] end
+  FLT.GetStabledPets = function() return {} end
+  _G.OneForAll = FLT
+  return FLT
+end
+
+local function loadAddon()
+  local NS = {}
+  for _, f in ipairs(tocFiles(NSDIR, "OneForAll_NoSpoilers.toc")) do
+    local chunk = assert(loadfile(NSDIR .. "/" .. f))
+    chunk("OneForAll_NoSpoilers", NS)
+  end
+  return NS
+end
+
+local function session(saved)
+  chat, popups, timers, tickers = {}, {}, {}, {}
+  world = { spells = {}, bags = {}, bagList = {} }
+  api()
+  local FLT = loadOneForAll()
+  local full = {
+    dungeons = #FLT.DUNGEONS, flight = #FLT.MAP_LANDMARKS.flight, books = #FLT.BOOKS,
+    firstFlight = FLT.MAP_LANDMARKS.flight[1], firstBook = FLT.BOOKS[1],
+    firstSetItem = FLT.ARMORY_SETS[1].i[1][1], firstSet = FLT.ARMORY_SETS[1].n,
+    recipe = FLT.PROFESSION_RECIPES["Alchemy"][1].s,
+    overlays = next(FLT.MAP_OVERLAYS) ~= nil,
+    rewardLine = FLT.QUEST_REWARDS.items:match("^[^\n]+"),
+  }
+  _G.OneForAllNoSpoilersCharDB = saved
+  local NS = loadAddon()
+  fire("ADDON_LOADED", "OneForAll")
+  fire("ADDON_LOADED", "OneForAll_NoSpoilers")
+  return FLT, NS, full
+end
+
+local function count(t) local n = 0; for _ in pairs(t) do n = n + 1 end; return n end
+
+-- 1. Fresh character -----------------------------------------------------------------------------------
+print("Session 1: fresh character")
+local FLT, NS, full = session(nil)
+print(("  data: %d dungeons, %d flight masters, %d books"):format(full.dungeons, full.flight, full.books))
+check(full.dungeons > 30 and full.flight > 50 and full.books > 20, "OneForAll data loaded")
+check(#chat == 0, "no warnings at load (" .. table.concat(chat, " | ") .. ")")
+check(#FLT.DUNGEONS == 0, "no dungeons shown")
+check(#FLT.MAP_LANDMARKS.flight == 0 and #FLT.ZONE_TRANSITIONS == 0 and #FLT.SKYBORNE_SPOTS.ley == 0, "no landmarks shown")
+check(#FLT.BOOKS == 0, "no books shown")
+local recipes = 0
+for _, l in pairs(FLT.PROFESSION_RECIPES) do recipes = recipes + #l end
+check(recipes == 0 and #FLT.MERCHANT_RECIPES == 0, "no recipes shown")
+check(#FLT.ARMORY_SETS == 0 and #FLT.ARMORY_REPUTATION == 0, "no armory sets or factions shown")
+check(#FLT.PET_FAMILIES == 0 and #FLT.PET_RARES == 0, "no pet families or rares shown")
+check(full.overlays and next(FLT.MAP_OVERLAYS) == nil, "Remove Fog data emptied")
+check(FLT.QUEST_REWARDS.items == "", "no Gear Planner quest rewards shown")
+FLT.ShowNews()
+check(not FLT.newsShown, "What's New does not open")
+
+fire("PLAYER_LOGIN")
+runTimers()
+check(#tickers == 1, "position ticker started")
+
+-- walk towards the first flight master (fake world: 1 % of a map = 10 yards)
+local fm = full.firstFlight
+world.map, world.y = fm[1], fm[3] / 100
+world.x = fm[2] / 100 + 0.30 -- 300 yards
+tickers[1](); runTimers()
+check(#FLT.MAP_LANDMARKS.flight == 0, "flight master hidden at 300 yards")
+world.x = fm[2] / 100 + 0.15 -- 150 yards
+tickers[1](); runTimers()
+check(#FLT.MAP_LANDMARKS.flight == 0, "flight master hidden at 150 yards")
+world.x = fm[2] / 100 + 0.05 -- 50 yards
+tickers[1](); runTimers()
+check(#FLT.MAP_LANDMARKS.flight >= 1, "flight master revealed at 50 yards")
+check(FLT.resets > 0, "OneForAll's map index asked to rebuild")
+
+-- walk up to the first book
+local b = full.firstBook
+world.map, world.x, world.y = FLT.MAP_IDS[b.zone], b.x / 100 + 0.03, b.y / 100
+tickers[1](); runTimers()
+local found = false
+for _, x in ipairs(FLT.BOOKS) do if x == b then found = true end; print("    revealed book: " .. x.name .. " (" .. x.zone .. ")") end
+check(found, "book revealed within ~30 yards")
+
+-- enter the Deadmines
+world.instance = { name = "The Deadmines", kind = "party", id = 36 }
+fire("PLAYER_ENTERING_WORLD"); runTimers()
+check(#popups == 1 and popups[1]:find("Deadmines"), "reload prompt for the Deadmines")
+check(#FLT.DUNGEONS == 0, "dungeon list unchanged until reload")
+world.instance = { name = "Dire Maul", kind = "party", id = 429 }
+fire("PLAYER_ENTERING_WORLD"); runTimers()
+check(popups[2] and popups[2]:find("DM: East") and popups[2]:find("DM: North"), "Dire Maul wings counted together: " .. tostring(popups[2]))
+world.instance = nil
+
+-- learn a recipe, see an armory item, tame a bear
+world.spells[full.recipe] = true
+fire("SPELLS_CHANGED"); runTimers()
+fire("CHAT_MSG_LOOT", "Bob receives loot: |cffa335ee|Hitem:" .. full.firstSetItem .. "::::::::60:::::|h[Thing]|h|r.")
+world.pet = { guid = "Pet-0-4379-0-3-1196-0100D6C1D8", family = "Bear" }
+fire("UNIT_PET", "player")
+local rewardQuest = tonumber(full.rewardLine:match("^%d+,%d+,(%d+)"))
+world.questDetail = rewardQuest
+fire("QUEST_DETAIL")
+
+local db = _G.OneForAllNoSpoilersCharDB
+check(db.recipes[full.recipe], "recipe recorded as learnt")
+check(db.items[full.firstSetItem], "armory item recorded as seen")
+check(db.pets.npcs[1196] and db.pets.families["Bear"], "tamed bear recorded")
+check(db.quests[rewardQuest], "offered quest recorded")
+
+SlashCmdList.ONEFORALLNOSPOILERS("status")
+for _, line in ipairs(chat) do print("    " .. line:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")) end
+
+-- 2. Next login with the saved progress -------------------------------------------------------------------
+print("Session 2: same character after /reload")
+local saved = db
+FLT, NS, full = session(saved)
+local names = {}
+for _, d in ipairs(FLT.DUNGEONS) do names[#names + 1] = d.name end
+check(#FLT.DUNGEONS == 4, "4 dungeons shown: " .. table.concat(names, ", "))
+check(#FLT.MAP_LANDMARKS.flight >= 1 and FLT.MAP_LANDMARKS.flight[1][5] == fm[5], "flight master still shown")
+local again = false
+for _, x in ipairs(FLT.BOOKS) do if x.itemId == full.firstBook.itemId then again = true end end
+check(again and #FLT.BOOKS == 2, "both revealed books still shown")
+check(#FLT.PROFESSION_RECIPES["Alchemy"] == 1, "learnt recipe shown")
+check(#FLT.ARMORY_SETS >= 1 and FLT.ARMORY_SETS[1].i[1][1] == full.firstSetItem, "set with the seen item shown (" .. #FLT.ARMORY_SETS .. " sets)")
+check(#FLT.PET_FAMILIES == 1 and FLT.PET_FAMILIES[1].name == "Bear" and #FLT.PET_FAMILIES[1].tames == 1, "Bear family with the tamed beast")
+local lines = {}
+for l in FLT.QUEST_REWARDS.items:gmatch("[^\n]+") do lines[#lines + 1] = l end
+check(#lines >= 1 and FLT.QUEST_REWARDS.items:find(full.rewardLine, 1, true), #lines .. " Gear Planner reward line(s) of the offered quest shown")
+
+-- 3. OneForAll data in an unexpected shape ---------------------------------------------------------------
+print("Session 3: OneForAll changed its dungeon data")
+chat, popups, timers, tickers = {}, {}, {}, {}
+world = { spells = {}, bags = {}, bagList = {} }
+api()
+FLT = loadOneForAll()
+FLT.DUNGEONS[1] = "something new"
+_G.OneForAllNoSpoilersCharDB = nil
+loadAddon()
+fire("ADDON_LOADED", "OneForAll_NoSpoilers")
+check(#FLT.DUNGEONS == full.dungeons, "dungeon list left untouched")
+check(#chat == 1 and chat[1]:find("Dungeons are not hidden"), "one chat notice: " .. tostring(chat[1]))
+check(#FLT.BOOKS == 0, "other parts still work")
+
+print(fails == 0 and "ALL PASSED" or (fails .. " FAILED"))
+os.exit(fails == 0 and 0 or 1)
