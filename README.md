@@ -38,7 +38,7 @@ Unless marked otherwise, new discoveries show up after your next `/reload` or lo
 2. Put the folder into `World of Warcraft/_forever_/Interface/AddOns/` and **rename it to `OneForAll_NoSpoilers`**. The folder name has to match the `.toc` file.
 3. Make sure OneForAll is installed too. This addon needs it.
 
-With git: `git clone https://github.com/somecommoner/OneForAll_Forever_NoSpoilers.git OneForAll_NoSpoilers`
+With git: `git clone https://github.com/somecommoner/OneForAll_Forever-NoSpoilers.git OneForAll_NoSpoilers`
 
 ## Commands
 
