@@ -193,31 +193,10 @@ local function status()
   NS.Print("Commands: /ofans (options), /ofans status, /ofans reveal <dungeon>, /ofans legacy")
 end
 
--- Diagnostic for the Legacy System (Forever's achievements): can addons read it, and does it track
--- dungeons? Prints what the client reports; changes nothing.
+-- What the Dungeons part makes of the Legacy System (Forever's achievements). Changes nothing.
 local function legacy()
-  if not (GetCategoryList and GetCategoryInfo and GetAchievementInfo) then
-    NS.Print("This client has no achievement functions for addons.")
-    return
-  end
-  local cats = GetCategoryList() or {}
-  NS.Print(#cats .. " achievement categories:")
-  for _, c in ipairs(cats) do
-    local name = GetCategoryInfo(c)
-    local n = GetCategoryNumAchievements and GetCategoryNumAchievements(c) or 0
-    NS.Print(string.format("  [%s] %s: %d", tostring(c), tostring(name), n or 0))
-    if type(name) == "string" and (name:find("Dungeon") or name:find("Raid") or name:find("Legacy")) then
-      for i = 1, math.min(n or 0, 10) do
-        local id, aname, _, completed = GetAchievementInfo(c, i)
-        local crit = id and GetAchievementNumCriteria and GetAchievementNumCriteria(id) or 0
-        NS.Print(string.format("    %s %s (%s criteria)%s", tostring(id), tostring(aname), tostring(crit), completed and " - done" or ""))
-        for j = 1, math.min(crit or 0, 6) do
-          local cname, _, cdone = GetAchievementCriteriaInfo(id, j)
-          NS.Print(string.format("      - %s%s", tostring(cname), cdone and " (done)" or ""))
-        end
-      end
-    end
-  end
+  local m = NS.byKey.dungeons
+  if m and m.active and m.legacySummary then m.legacySummary() else NS.Print("The dungeon part is not running.") end
 end
 
 SLASH_ONEFORALLNOSPOILERS1 = "/ofans"

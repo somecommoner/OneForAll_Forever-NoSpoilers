@@ -345,5 +345,56 @@ check(#FLT.DUNGEONS == full.dungeons, "dungeon list left untouched")
 check(#chat == 1 and chat[1]:find("Dungeons are not hidden"), "one chat notice: " .. tostring(chat[1]))
 check(#FLT.BOOKS == 0, "other parts still work")
 
+-- 5. Legacy System: dungeons show once cleared -------------------------------------------------------------
+print("Session 5: Legacy record (dungeons show once cleared)")
+local function legacyApi(flags, crit)
+  _G.UnitFactionGroup = function() return "Horde" end
+  _G.GetAchievementInfo = function(id) if crit[id] then return id, "Spelunker", 10, false, nil, nil, nil, "", flags end end
+  _G.GetAchievementNumCriteria = function(id) return #crit[id] end
+  _G.GetAchievementCriteriaInfo = function(id, j) return crit[id][j][1], 0, crit[id][j][2] end
+end
+local crit = {
+  [62031] = { { "Ragefire Chasm or Hall of Thanes", false }, { "The Deadmines", false }, { "Wailing Caverns", false } },
+  [62032] = { { "Blackfathom Deeps", false }, { "Somewhere New", false } },
+  [62033] = { { "Uldaman", false } },
+}
+FLT, NS, full = session({})
+legacyApi(0, crit)
+db = _G.OneForAllNoSpoilersCharDB
+fire("PLAYER_LOGIN"); runTimers()
+world.instance = { name = "The Deadmines", kind = "party", id = 36 }
+fire("PLAYER_ENTERING_WORLD"); runTimers()
+check(#popups == 0 and not db.dungeons["The Deadmines"], "entering a tracked dungeon reveals nothing")
+world.instance = { name = "The Stockade", kind = "party", id = 34 }
+fire("PLAYER_ENTERING_WORLD"); runTimers()
+check(#popups == 1 and db.dungeons["The Stockade"], "entering an untracked dungeon reveals it")
+crit[62031][3][2] = true
+fire("CRITERIA_UPDATE"); runTimers()
+check(#popups == 2 and popups[2]:find("Wailing Caverns") and db.dungeons["Wailing Caverns"], "clearing Wailing Caverns reveals it")
+crit[62031][1][2] = true
+fire("CRITERIA_UPDATE"); runTimers()
+check(db.dungeons["Ragefire Chasm"] and not db.dungeons["Hall of Thanes"], "Ragefire or Hall of Thanes: only the Horde one")
+check(#chat == 0, "no chat notice (" .. table.concat(chat, " | ") .. ")")
+NS.Print = function(t) chat[#chat + 1] = t end
+SlashCmdList.ONEFORALLNOSPOILERS("legacy")
+check(chat[1] and chat[1]:find("tracks 6 dungeons; this character has cleared 2", 1, true), "summary: " .. tostring(chat[1]))
+check(chat[3] and chat[3]:find("Somewhere New", 1, true), "unmatched criterion listed")
+SlashCmdList.ONEFORALLNOSPOILERS("status")
+local st = ""
+for _, line in ipairs(chat) do if line:find("^Dungeons:") then st = line end end
+check(st:find("once cleared", 1, true), "status: " .. st:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""))
+
+print("Session 6: account-wide Legacy record")
+FLT, NS, full = session({})
+legacyApi(0x20000, crit)
+db = _G.OneForAllNoSpoilersCharDB
+fire("PLAYER_LOGIN"); runTimers()
+world.instance = { name = "Uldaman", kind = "party", id = 70 }
+fire("PLAYER_ENTERING_WORLD"); runTimers()
+check(db.dungeons["Uldaman"] and not db.dungeons["Wailing Caverns"], "falls back to entering; other characters' clears ignored")
+check(#chat == 1 and chat[1]:find("account-wide", 1, true), "one chat notice: " .. table.concat(chat, " | "))
+fire("PLAYER_ENTERING_WORLD"); runTimers()
+check(#chat == 1, "notice not repeated")
+
 print(fails == 0 and "ALL PASSED" or (fails .. " FAILED"))
 os.exit(fails == 0 and 0 or 1)

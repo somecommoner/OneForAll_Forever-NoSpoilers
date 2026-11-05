@@ -12,7 +12,7 @@ Progress is saved **per character**. A new alt starts with everything hidden.
 
 | OneForAll feature | Appears when |
 |---|---|
-| **Dungeons & raids**: the Dungeons tab, entrance icons, "Drops from" tooltips, quest sharing | You've been inside the dungeon. A popup then offers a reload to add it. |
+| **Dungeons & raids**: the Dungeons tab, entrance icons, "Drops from" tooltips, quest sharing | You've cleared the dungeon, as recorded in the Legacy System (Forever's achievements). A popup then offers a reload to add it. Raids, and any dungeon the Legacy System doesn't track, show once you've been inside. |
 | **Map landmarks**: flight masters, ships, zeppelins, the tram, zone transitions, Skyborne spots | You've been within about 80–100 yards. They show on the map straight away. |
 | **Quest givers on the world map** (the `!` icons) | You've been within about 80–100 yards of the giver. Turn-ins (`?`) always show, as they're only for quests in your log. |
 | **Library Books**: map icons, the "book nearby" alert, the Books tab | You've been within about 80–100 yards, or picked the book up. The Books tab updates after a reload. |
@@ -21,7 +21,7 @@ Progress is saved **per character**. A new alt starts with everything hidden.
 | **Weapon masters**: who teaches which weapon, and where (trainer window) | You've been within about 80–100 yards. They show straight away. |
 | **Professions**: the recipe browser, Merchant's Favor, the Crafting List, camping items | You've learnt the recipe |
 | **Armory**: item sets and reputation rewards | You've owned the item, or the game has shown it to you: a loot window, a loot roll, a loot chat line, at a vendor, or as a quest reward |
-| **Gear Planner** | It follows the rows above: dungeon loot from dungeons you've been in, crafted items from your recipes, set and rep items you've seen, and quest rewards from quests you've seen (offered, in your log or completed). Enchant suggestions show once you've learnt the recipe or owned or seen the item that applies it. |
+| **Gear Planner** | It follows the rows above: dungeon loot from dungeons you've cleared, crafted items from your recipes, set and rep items you've seen, and quest rewards from quests you've seen (offered, in your log or completed). Enchant suggestions show once you've learnt the recipe or owned or seen the item that applies it. |
 | **Hunter pets**: families, tameable beasts, ability teachers, rare tames | You've tamed that beast, or had a pet of that family |
 | **What's New** window | Never |
 | **Remove Fog** (Quality of Life) | Never: it would uncover areas you haven't explored |
@@ -33,7 +33,8 @@ Every part can be switched off in the options (see below).
 ### Things you might notice
 
 - **New quest givers on the map:** OneForAll reads a zone's quest givers the first time you open that zone's map in a session. A giver you meet after that shows on the map after your next `/reload` or login.
-- **Shared wings:** entering any Dire Maul wing reveals all three, and the same goes for both halves of Blackrock Spire. The game reports the same dungeon for each wing. Scarlet Monastery's wings are told apart correctly.
+- **Cleared, not entered:** the Legacy System records a dungeon when you clear it, and this addon follows that. "Ragefire Chasm or Hall of Thanes" counts the one on your side. If the Legacy System is account-wide or can't be read, dungeons show once you've been inside instead, and a chat line says so. Dungeons you'd already entered before this change stay shown.
+- **Shared wings:** where dungeons show on entering, entering any Dire Maul wing reveals all three, and the same goes for both halves of Blackrock Spire. The game reports the same dungeon for each wing. Scarlet Monastery's wings are told apart correctly.
 - **Set piece counts:** an Armory set lists only the pieces you've seen. Until you've seen them all, its name shows how many, for example "Battlegear of Glory (1/6 seen)". OneForAll's own counter only counts the listed pieces, so it reads "Owned 1 / 1".
 - **Pet alerts:** OneForAll's "this beast teaches …" alert only works for beasts you've already tamed.
 - **Enchant suggestions:** enchanting enchants are spells, not items, so if you're not an enchanter you'll only see the ones applied with items (armour kits, scopes and so on).
@@ -64,7 +65,7 @@ Don't use GitHub's *Code → Download ZIP*. That folder is named after the repos
 | `/ofans` | Opens the options |
 | `/ofans status` | Prints each part in chat: what's discovered, what's hidden, and whether it's running |
 | `/ofans reveal <dungeon>` | Marks a dungeon as discovered by hand, e.g. `/ofans reveal deadmines` |
-| `/ofans legacy` | Prints what the game reports about the Legacy System (Forever's achievements). This is a diagnostic only. |
+| `/ofans legacy` | Says whether the Legacy System can be used, how many dungeons it tracks and how many you've cleared, and which dungeons show on entering instead. It names dungeons, so it can spoil. |
 
 ## How it works
 
