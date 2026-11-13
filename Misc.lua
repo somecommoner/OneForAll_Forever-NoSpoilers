@@ -25,3 +25,31 @@ function Fog.apply(FLT)
   return true
 end
 function Fog.status() return NS.IsOn("fog") and "disabled" or "left to OneForAll's setting (switched off)" end
+
+-- Book alerts once: OneForAll's "Library Book nearby" popup comes up every time you come back near a book you
+-- haven't picked up. FLT:ShowNearbyBookAlert (its one public function for it) is wrapped so each book alerts
+-- this character only the first time. Seen books are kept per character by item ID.
+local BookAlert = { key = "bookalert", label = "Book alerts once" }
+NS.AddModule(BookAlert)
+
+function BookAlert.apply(FLT, db)
+  db.bookAlerted = db.bookAlerted or {}
+  if not NS.IsOn("bookalert") then return true end
+  local show = FLT.ShowNearbyBookAlert
+  if type(show) ~= "function" then return false, "its book alert function was not found" end
+  FLT.ShowNearbyBookAlert = function(self, book, ...)
+    local id = type(book) == "table" and book.itemId or nil
+    if id ~= nil then
+      if db.bookAlerted[id] then return end
+      db.bookAlerted[id] = true
+    end
+    return show(self, book, ...)
+  end
+  return true
+end
+function BookAlert.status()
+  if not NS.IsOn("bookalert") then return "every time (switched off)" end
+  local n = 0
+  for _ in pairs(NS.db.bookAlerted or {}) do n = n + 1 end
+  return "once per book (" .. n .. " alerted)"
+end

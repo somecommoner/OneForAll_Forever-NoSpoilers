@@ -36,6 +36,7 @@ Every part can be switched off in the options (see below).
 - **Cleared, not entered:** the Legacy System records a dungeon when you clear it, and this addon follows that. "Ragefire Chasm or Hall of Thanes" counts the one on your side. If the Legacy System is account-wide or can't be read, dungeons show once you've been inside instead, and a chat line says so. Dungeons you'd already entered before this change stay shown.
 - **Shared wings:** where dungeons show on entering, entering any Dire Maul wing reveals all three, and the same goes for both halves of Blackrock Spire. The game reports the same dungeon for each wing. Scarlet Monastery's wings are told apart correctly.
 - **Set piece counts:** an Armory set lists only the pieces you've seen. Until you've seen them all, its name shows how many, for example "Battlegear of Glory (1/6 seen)". OneForAll's own counter only counts the listed pieces, so it reads "Owned 1 / 1".
+- **Book alerts only once:** OneForAll's "Library Book nearby" popup shows only the first time this character is near each book, not every time you pass it again. Switch it off in the options to get it every time.
 - **Pet alerts:** OneForAll's "this beast teaches …" alert only works for beasts you've already tamed.
 - **Enchant suggestions:** enchanting enchants are spells, not items, so if you're not an enchanter you'll only see the ones applied with items (armour kits, scopes and so on).
 - **Left as they are:** class trainer spells, talents, class quest milestones, the Merchant's Favor guide and profession trainers. They're game mechanics or help you find things.
@@ -71,7 +72,7 @@ Don't use GitHub's *Code → Download ZIP*. That folder is named after the repos
 
 OneForAll loads all its data first. This addon depends on it, so it always loads second. Before OneForAll builds any window or map icon, each part of this addon removes the undiscovered entries from OneForAll's own data lists. As you discover things, the entries go back in.
 
-- **It never edits OneForAll's code or windows.** It only trims OneForAll's data lists, plus three small public entry points: the What's New window, the Remove Fog data, and a request for the map icons to rebuild.
+- **It never edits OneForAll's code or windows.** It only trims OneForAll's data lists, plus four small public entry points: the What's New window, the Remove Fog data, the "Library Book nearby" alert, and a request for the map icons to rebuild.
 - **It saves only your progress.** That means the IDs of what you've discovered, never OneForAll's data. When an OneForAll update adds new dungeons, books or recipes, they're picked up automatically.
 - **It's built to survive OneForAll updates.** Every part checks that OneForAll's data still looks the way it expects before changing anything. If it doesn't, that part leaves the data alone, says so once in chat, and the other parts keep working. The worst case after an update is that something shows when it should be hidden. It won't cause errors.
 
@@ -89,7 +90,7 @@ Files:
 | `Pets.lua` | Hunter pets |
 | `Quests.lua` | Gear Planner quest rewards and Library Book reward tiers |
 | `Enchants.lua` | Gear Planner enchant suggestions |
-| `Misc.lua` | What's New and Remove Fog |
+| `Misc.lua` | What's New, Remove Fog and book alerts only once |
 | `Options.lua` | The options page |
 
 ## Testing

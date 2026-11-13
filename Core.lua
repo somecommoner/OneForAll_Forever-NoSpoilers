@@ -57,6 +57,7 @@ NS.SWITCHES = {
   { key = "enchants", part = "enchants", label = "Gear Planner enchants", desc = "Enchant suggestions: recipe learnt, or the item owned or seen." },
   { key = "news", part = "news", label = "Hide What's New", desc = "OneForAll's \"Noteworthy changes\" window." },
   { key = "fog", part = "fog", label = "Disable Remove Fog", desc = "OneForAll's option that uncovers unexplored parts of the map." },
+  { key = "bookalert", part = "bookalert", label = "Book alerts only once", desc = "The \"Library Book nearby\" popup: only the first time you're near each book." },
 }
 
 local loadedOff = {} -- the switches as they were at load (what is in effect this session)

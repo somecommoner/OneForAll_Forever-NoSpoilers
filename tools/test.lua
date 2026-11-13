@@ -110,6 +110,8 @@ local function loadOneForAll()
   end
   -- the bits of OneForAll's code that we call
   FLT.ShowNews = function() FLT.newsShown = true end
+  FLT.alerts = 0
+  FLT.ShowNearbyBookAlert = function(self, book) self.alerts = self.alerts + 1 end
   FLT.resets = 0
   FLT.MapLandmarks = { _reset = function() FLT.resets = FLT.resets + 1 end, Refresh = function() end }
   FLT.FindMapID = function(self, zone) return self.MAP_IDS[zone] end
@@ -395,6 +397,22 @@ check(db.dungeons["Uldaman"] and not db.dungeons["Wailing Caverns"], "falls back
 check(#chat == 1 and chat[1]:find("account-wide", 1, true), "one chat notice: " .. table.concat(chat, " | "))
 fire("PLAYER_ENTERING_WORLD"); runTimers()
 check(#chat == 1, "notice not repeated")
+
+-- 7. Book alerts only once ---------------------------------------------------------------------------------
+print("Session 7: book alerts only once")
+local bookDB = {}
+FLT, NS, full = session(bookDB)
+local book1, book2 = { itemId = 1001, name = "A" }, { itemId = 1002, name = "B" }
+FLT:ShowNearbyBookAlert(book1, 50)
+FLT:ShowNearbyBookAlert(book1, 50)
+FLT:ShowNearbyBookAlert(book2, 50)
+check(FLT.alerts == 2, "each book alerts once (" .. FLT.alerts .. " alerts)")
+FLT, NS, full = session(bookDB)
+FLT:ShowNearbyBookAlert(book1, 50)
+check(FLT.alerts == 0, "no alert again after /reload")
+FLT, NS, full = session(bookDB, { off = { bookalert = true } })
+FLT:ShowNearbyBookAlert(book1, 50)
+check(FLT.alerts == 1, "switched off: alerts every time")
 
 print(fails == 0 and "ALL PASSED" or (fails .. " FAILED"))
 os.exit(fails == 0 and 0 or 1)
