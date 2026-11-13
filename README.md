@@ -105,7 +105,7 @@ Run it after an OneForAll update to check that the data still lines up.
 
 ## Releasing
 
-Raise `## Version:` in the `.toc` file, commit, then tag and push, for example `git tag v0.1.1 && git push origin v0.1.1`. The GitHub Action in `.github/workflows/release.yml` builds the zip and publishes the release, and WowUp picks it up from there.
+Every push to `main` that changes a top-level `.lua` or `.toc` file publishes a new release (changes under `tools/` don't). The version goes up by one each time (0.4.0, 0.4.1, ...). For a bigger jump, set `## Version:` in the `.toc` to the new number in the same push. The GitHub Action in `.github/workflows/release.yml` builds the zip and publishes the release, and WowUp picks it up from there.
 
 ## License
 

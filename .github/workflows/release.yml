@@ -1,26 +1,50 @@
-# Builds the addon zip and publishes a GitHub release whenever a version tag (v1.2.3) is pushed.
+# Every push to main that changes the addon (.lua or .toc at the top level; tools/ does not count) publishes a new release.
+# Version: the "## Version" in the .toc if no release has it yet, otherwise the
+# latest release with its last number raised by one (0.1.0 -> 0.1.1). To jump to
+# 0.2.0, set "## Version: 0.2.0" in the .toc in the same push.
 # WowUp ("Install from URL") picks the zip through release.json (flavor "forever", the BigWigs packager
 # format) or, as a fallback, through the "-forever.zip" ending of its name.
 name: Release
 
 on:
   push:
-    tags: ["v*"]
+    branches: [main]
+    paths: ["*.lua", "*.toc"]
 
 permissions:
   contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 jobs:
   release:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Pick the version
+        run: |
+          set -euo pipefail
+          ADDON=OneForAll_NoSpoilers
+          TOC_VERSION=$(sed -n 's/^## Version: *//p' "$ADDON.toc" | tr -d '\r')
+          LATEST=$(git tag --list 'v*' --sort=-v:refname | head -n1)
+          if [ -z "$(git tag --list "v$TOC_VERSION")" ]; then
+            VERSION="$TOC_VERSION"
+          else
+            BASE="${LATEST#v}"
+            VERSION="${BASE%.*}.$(( ${BASE##*.} + 1 ))"
+          fi
+          echo "Latest release: ${LATEST:-none}. New version: $VERSION"
+          echo "ADDON=$ADDON" >> "$GITHUB_ENV"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
 
       - name: Build the addon zip
         run: |
           set -euo pipefail
-          ADDON=OneForAll_NoSpoilers
-          VERSION="${GITHUB_REF_NAME#v}"
           INTERFACE=$(sed -n 's/^## Interface: *//p' "$ADDON.toc" | tr -d '\r' | cut -d, -f1)
           mkdir -p "build/$ADDON"
           cp "$ADDON.toc" *.lua README.md LICENSE "build/$ADDON/"
@@ -35,4 +59,4 @@ jobs:
       - name: Publish the release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" "$ZIP" release.json --title "$GITHUB_REF_NAME" --generate-notes
+        run: gh release create "v$VERSION" "$ZIP" release.json --target "$GITHUB_SHA" --title "v$VERSION" --generate-notes
