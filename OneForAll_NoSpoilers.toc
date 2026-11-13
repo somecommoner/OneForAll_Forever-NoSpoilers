@@ -2,7 +2,7 @@
 ## Title: OneForAll NoSpoilers
 ## Notes: Hides OneForAll content (dungeons, map icons, books, recipes, sets, pets, zone level ranges and Gear Planner suggestions) until this character has discovered it. Leaves OneForAll itself unchanged.
 ## Author: somecommoner (unofficial companion to OneForAll by Smoergi)
-## Version: 0.3.0
+## Version: 0.4.0
 ## Dependencies: OneForAll
 ## SavedVariables: OneForAllNoSpoilersDB
 ## SavedVariablesPerCharacter: OneForAllNoSpoilersCharDB
